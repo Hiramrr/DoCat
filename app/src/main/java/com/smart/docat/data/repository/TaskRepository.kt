@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first // Asegúrate de agregar este import arriba
 
 class TaskRepository(
     private val taskDao: TaskDao,
@@ -35,8 +36,10 @@ class TaskRepository(
 
     suspend fun getTaskById(id: Long): Task? {
         val taskEntity = taskDao.getTaskById(id) ?: return null
-        val subTasks = mutableListOf<SubTaskEntity>()
-        subTaskDao.getSubTasksForTask(taskEntity.id).collect { subTasks.addAll(it) }
+
+        // Usamos .first() para tomar la primera lista que nos da la BD y continuar
+        val subTasks = subTaskDao.getSubTasksForTask(taskEntity.id).first()
+
         return taskEntity.toDomain(subTasks)
     }
 
