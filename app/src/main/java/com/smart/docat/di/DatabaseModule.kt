@@ -1,35 +1,46 @@
 package com.smart.docat.di
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.Query
-import androidx.room.Update
-import com.smart.docat.data.local.entity.SessionHistoryEntity
-import kotlinx.coroutines.flow.Flow
+import android.content.Context
+import androidx.room.Room
+import com.smart.docat.data.local.AppDatabase
+import com.smart.docat.data.local.dao.SessionHistoryDao
+import com.smart.docat.data.local.dao.SubTaskDao
+import com.smart.docat.data.local.dao.TaskDao
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
-@Dao
-interface SessionHistoryDao{
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
 
-    @Query("SELECT * FROM session_history WHERE fecha = :fecha")
-    fun getSessionHistoryForDate(fecha: String): Flow<List<SessionHistoryEntity>>
+    @Provides
+    @Singleton
+    fun provideAppDatabase(
+        @ApplicationContext context: Context
+    ): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "docat_db"
+        ).build()
+    }
 
-    @Query("SELECT SUM(tiempo_real) FROM session_history WHERE fecha = :fecha")
-    suspend fun getTotalTimeForDate(fecha: String): Int?
+    @Provides
+    fun provideTaskDao(database: AppDatabase): TaskDao {
+        return database.taskDao()
+    }
 
-    @Query("SELECT SUM(tiempo_real) FROM session_history")
-    suspend fun getTotalTime(): Int?
+    @Provides
+    fun provideSubTaskDao(database: AppDatabase): SubTaskDao {
+        return database.subTaskDao()
+    }
 
-    @Query("SELECT SUM(tiempo_real) FROM session_history WHERE tarea_id = :tareaId AND fecha = :fecha")
-    suspend fun getTotalTimeForTask(tareaId: Long, fecha: String): Int?
-
-    @Insert
-    suspend fun insertSessionHistory(sessionHistory: SessionHistoryEntity)
-
-    @Update
-    suspend fun updateSessionHistory(sessionHistory: SessionHistoryEntity)
-
-    @Delete
-    suspend fun deleteSessionHistory(sessionHistory: SessionHistoryEntity)
-
+    @Provides
+    fun provideSessionHistoryDao(database: AppDatabase): SessionHistoryDao {
+        return database.sessionHistoryDao()
+    }
 }

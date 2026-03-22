@@ -24,12 +24,6 @@ object ServiceModule {
 
     @Provides
     @Singleton
-    fun provideAmbientSoundPlayer(
-        @ApplicationContext context: Context
-    ): AmbientSoundPlayer = AmbientSoundPlayer(context)
-
-    @Provides
-    @Singleton
     fun provideNotificationHelper(
         @ApplicationContext context: Context
     ): NotificationHelper = NotificationHelper(context)
