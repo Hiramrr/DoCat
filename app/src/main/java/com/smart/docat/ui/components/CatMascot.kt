@@ -11,7 +11,7 @@ import com.smart.docat.R
 
 
 @Composable
-fun CanMascot(
+fun CatMascot(
     mood: CatMood,
     modifier: Modifier = Modifier,
     size: Dp = 160.dp
