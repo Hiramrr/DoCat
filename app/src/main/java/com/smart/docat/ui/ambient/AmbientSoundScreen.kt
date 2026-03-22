@@ -5,14 +5,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,7 +49,7 @@ fun AmbientSoundScreen(
             items(sounds) { sound ->
                 SoundItem(
                     sound = sound,
-                    isSelected = selectedSound?.id == sound.id && isPlaying,
+                    isSelected = (selectedSound == sound) && isPlaying,
                     onClick = { viewModel.toggleSound(sound) }
                 )
             }
@@ -80,7 +81,7 @@ fun SoundItem(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = sound.name,
+                text = stringResource(id = sound.nameResId),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer

@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">DoCat</string>
+    <string name="sound_lluvia">Lluvia relajante</string>
+    <string name="sound_rio">Río fluyendo</string>
+    <string name="sound_bosque">Bosque de noche</string>
+    <string name="sound_cafe">Cafetería</string>
+    <string name="sound_olas">Olas del mar</string>
+    <string name="sound_viento">Viento suave</string>
+    <string name="sound_fuego">Fuego en chimenea</string>
+    <string name="sound_noche">Noche tranquila</string>
+    <string name="sound_ciudad">Ruido de ciudad</string>
+    <string name="sound_pajaros">Pájaros cantando</string>
 </resources>

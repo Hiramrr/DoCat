@@ -1,37 +1,86 @@
 package com.smart.docat.core.audio
 
 import android.content.Context
-import android.media.MediaPlayer
+import android.net.Uri
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AmbientSoundPlayer(private val context: Context) {
-    private var mediaPlayer: MediaPlayer? = null
-    var currentSoundId: Int? = null
-        private set
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "docat_preferences")
+
+@Singleton
+class AmbientSoundPlayer @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val player: ExoPlayer = ExoPlayer.Builder(context).build().apply {
+        repeatMode = ExoPlayer.REPEAT_MODE_ONE
+    }
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    companion object {
+        val KEY_SELECTED_SOUND = stringPreferencesKey("selected_ambient_sound")
+        val KEY_VOLUME = floatPreferencesKey("ambient_volume")
+    }
+
+    init {
+        scope.launch {
+            val soundName = context.dataStore.data
+                .map { it[KEY_SELECTED_SOUND] }
+                .first()
+            soundName
+                ?.let { runCatching { AmbientSound.valueOf(it) }.getOrNull() }
+                ?.let { loadSound(it) }
+        }
+    }
 
     fun play(sound: AmbientSound) {
-        // Si ya está sonando este mismo audio, no hacemos nada
-        if (currentSoundId == sound.id && mediaPlayer?.isPlaying == true) {
-            return
+        loadSound(sound)
+        player.play()
+        scope.launch {
+            context.dataStore.edit { it[KEY_SELECTED_SOUND] = sound.name }
         }
+    }
 
-        // Detenemos cualquier sonido anterior antes de iniciar uno nuevo
-        stop()
+    fun resume() {
+        if (!player.isPlaying) player.play()
+    }
 
-        mediaPlayer = MediaPlayer.create(context, sound.resourceId).apply {
-            isLooping = true // Queremos que el sonido ambiental se repita indefinidamente
-            start()
-        }
-        currentSoundId = sound.id
+    fun pause() {
+        if (player.isPlaying) player.pause()
     }
 
     fun stop() {
-        mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.stop()
-            }
-            it.release() // Es crucial liberar los recursos del MediaPlayer
+        player.stop()
+    }
+
+    fun setVolume(volume: Float) {
+        player.volume = volume.coerceIn(0f, 1f)
+        scope.launch {
+            context.dataStore.edit { it[KEY_VOLUME] = volume }
         }
-        mediaPlayer = null
-        currentSoundId = null
+    }
+
+    fun release() {
+        player.release()
+    }
+
+    private fun loadSound(sound: AmbientSound) {
+        val uri = Uri.parse("android.resource://${context.packageName}/${sound.resId}")
+        player.setMediaItem(MediaItem.fromUri(uri))
+        player.prepare()
     }
 }
