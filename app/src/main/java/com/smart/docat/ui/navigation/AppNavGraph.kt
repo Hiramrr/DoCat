@@ -23,6 +23,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.smart.docat.ui.calendar.CalendarScreen
+import com.smart.docat.ui.calendar.CalendarViewModel
 
 // Importamos nuestras pantallas y ViewModels
 import com.smart.docat.ui.home.HomeScreen
@@ -152,6 +154,11 @@ fun AppNavGraph() {
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Screen.Calendar.route) {
+                val viewModel = hiltViewModel<CalendarViewModel>()
+                CalendarScreen(viewModel = viewModel)
             }
 
             composable(Screen.Timer.route) {
