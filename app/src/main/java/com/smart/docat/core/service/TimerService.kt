@@ -106,23 +106,23 @@ class TimerService : Service() {
                             secondsRemaining = subTask.tiempoAsignado * 60
                         ) }
 
-                        // TODO (Fase 4): Lanzar Sonido de "Inicio de Trabajo" aquí
+                        notificationHelper.showAlarmNotification(AlarmType.WORK_START)
                         ambientSoundPlayer.resume()
 
-                        // Ejecutar temporizador de trabajo
                         countDown(subTask.tiempoAsignado * 60)
 
                         val isLastRep = rep == task.repeticiones - 1
                         val isLastSubTask = subIndex == task.subTareas.size - 1
 
-                        // Hay descanso siempre, EXCEPTO si es la última subtarea de la última repetición
+                        // --- FASE DE DESCANSO ---
                         if (!(isLastRep && isLastSubTask) && task.tiempoDescanso > 0) {
+
                             _state.update { it.copy(
                                 isWorkPhase = false,
                                 secondsRemaining = task.tiempoDescanso * 60
                             ) }
 
-                            // TODO (Fase 4): Lanzar Sonido de "Inicio de Descanso" aquí
+                            notificationHelper.showAlarmNotification(AlarmType.REST_START)
                             ambientSoundPlayer.pause()
 
                             countDown(task.tiempoDescanso * 60)
@@ -130,7 +130,6 @@ class TimerService : Service() {
                     }
                 }
 
-                // Guardar sesión con el tiempo real transcurrido
                 val elapsedSeconds = ((System.currentTimeMillis() - sessionStart) / 1000).toInt()
                 sessionHistoryRepository.saveSession(
                     SessionHistory(tareaId = task.id, fecha = date, tiempoReal = elapsedSeconds)
@@ -138,13 +137,11 @@ class TimerService : Service() {
 
                 val isLastTask = taskIndex == tasks.size - 1
                 if (!isLastTask) {
-                    // TODO (Fase 4): Esto se puede cambiar por un sonido unificado de cambio de tarea
                     notificationHelper.showAlarmNotification(AlarmType.SERIES_COMPLETE)
                 }
             }
 
             // --- FINALIZACIÓN DE TODO ---
-            // TODO (Fase 4): Lanzar Sonido de "Finalización" aquí
             notificationHelper.showAlarmNotification(AlarmType.ALL_DONE)
             ambientSoundPlayer.stop()
             _state.update { it.copy(isRunning = false) }

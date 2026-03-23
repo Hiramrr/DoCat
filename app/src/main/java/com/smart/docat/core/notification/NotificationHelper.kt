@@ -13,6 +13,7 @@ import com.smart.docat.core.alarm.AlarmType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.media.MediaPlayer
 
 @Singleton
 class NotificationHelper @Inject constructor(
@@ -68,18 +69,54 @@ class NotificationHelper @Inject constructor(
     }
 
     fun showAlarmNotification(alarmType: AlarmType) {
-        val (title, text) = when (alarmType) {
-            AlarmType.ACTIVITY_CHANGE -> "Cambio de actividad" to "Pasando a la siguiente subtarea"
-            AlarmType.SERIES_COMPLETE -> "Serie completada" to "Terminaste todas las repeticiones de esta tarea"
-            AlarmType.ALL_DONE -> "Día completado" to "Terminaste todas las tareas del día"
+        val title: String
+        val text: String
+        val soundResId: Int
+
+        when (alarmType) {
+            AlarmType.WORK_START -> {
+                title = "¡A trabajar!"
+                text = "Inicia tu bloque de productividad"
+                soundResId = R.raw.alarma_1
+            }
+            AlarmType.REST_START -> {
+                title = "¡Descanso!"
+                text = "Es momento de relajarse"
+                soundResId = R.raw.alarma_2
+            }
+            AlarmType.SERIES_COMPLETE -> {
+                title = "Serie completada"
+                text = "Terminaste todas las repeticiones de esta tarea"
+                soundResId = R.raw.alarma_3
+            }
+            AlarmType.ALL_DONE -> {
+                title = "¡Día completado!"
+                text = "Terminaste todas las tareas del día"
+                soundResId = R.raw.alarma_4
+            }
         }
+        playAlertSound(soundResId)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALARM)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // Importante para que salga como "pop-up"
             .setAutoCancel(true)
             .build()
+
         notificationManager.notify(NOTIFICATION_ID_ALARM, notification)
+    }
+
+    private fun playAlertSound(soundResId: Int) {
+        try {
+            val mediaPlayer = MediaPlayer.create(context, soundResId)
+            // Liberamos los recursos cuando el sonido termina
+            mediaPlayer.setOnCompletionListener { it.release() }
+            mediaPlayer.start()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun updateTimerNotification(taskName: String, timeRemaining: String) {

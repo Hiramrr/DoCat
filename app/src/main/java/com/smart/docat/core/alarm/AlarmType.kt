@@ -1,7 +1,8 @@
 package com.smart.docat.core.alarm
 
 enum class AlarmType {
-    ACTIVITY_CHANGE,
-    SERIES_COMPLETE,
-    ALL_DONE
+    WORK_START,       // Inicio de trabajo
+    REST_START,       // Inicio de descanso
+    SERIES_COMPLETE,  // Terminó una tarea completa
+    ALL_DONE          // Terminó todo el día
 }
