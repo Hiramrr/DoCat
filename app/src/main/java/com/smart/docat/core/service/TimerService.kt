@@ -96,8 +96,9 @@ class TimerService : Service() {
                 for (rep in 0 until task.repeticiones) {
                     _state.update { it.copy(currentRepetition = rep) }
 
-                    // Fase de trabajo: iterar subtareas
                     for ((subIndex, subTask) in task.subTareas.withIndex()) {
+
+                        // --- FASE DE TRABAJO ---
                         _state.update { it.copy(
                             isWorkPhase = true,
                             currentSubTaskIndex = subIndex,
@@ -105,30 +106,27 @@ class TimerService : Service() {
                             secondsRemaining = subTask.tiempoAsignado * 60
                         ) }
 
-                        alarmScheduler.schedule(
-                            AlarmType.ACTIVITY_CHANGE,
-                            System.currentTimeMillis() + (subTask.tiempoAsignado * 60 * 1000L)
-                        )
+                        // TODO (Fase 4): Lanzar Sonido de "Inicio de Trabajo" aquí
                         ambientSoundPlayer.resume()
+
+                        // Ejecutar temporizador de trabajo
                         countDown(subTask.tiempoAsignado * 60)
-                        alarmScheduler.cancel(AlarmType.ACTIVITY_CHANGE)
-                    }
 
-                    // Fase de descanso (solo entre repeticiones, no después de la última)
-                    val isLastRep = rep == task.repeticiones - 1
-                    if (!isLastRep && task.tiempoDescanso > 0) {
-                        _state.update { it.copy(
-                            isWorkPhase = false,
-                            secondsRemaining = task.tiempoDescanso * 60
-                        ) }
+                        val isLastRep = rep == task.repeticiones - 1
+                        val isLastSubTask = subIndex == task.subTareas.size - 1
 
-                        ambientSoundPlayer.pause()
-                        alarmScheduler.schedule(
-                            AlarmType.ACTIVITY_CHANGE,
-                            System.currentTimeMillis() + (task.tiempoDescanso * 60 * 1000L)
-                        )
-                        countDown(task.tiempoDescanso * 60)
-                        alarmScheduler.cancel(AlarmType.ACTIVITY_CHANGE)
+                        // Hay descanso siempre, EXCEPTO si es la última subtarea de la última repetición
+                        if (!(isLastRep && isLastSubTask) && task.tiempoDescanso > 0) {
+                            _state.update { it.copy(
+                                isWorkPhase = false,
+                                secondsRemaining = task.tiempoDescanso * 60
+                            ) }
+
+                            // TODO (Fase 4): Lanzar Sonido de "Inicio de Descanso" aquí
+                            ambientSoundPlayer.pause()
+
+                            countDown(task.tiempoDescanso * 60)
+                        }
                     }
                 }
 
@@ -140,10 +138,13 @@ class TimerService : Service() {
 
                 val isLastTask = taskIndex == tasks.size - 1
                 if (!isLastTask) {
+                    // TODO (Fase 4): Esto se puede cambiar por un sonido unificado de cambio de tarea
                     notificationHelper.showAlarmNotification(AlarmType.SERIES_COMPLETE)
                 }
             }
 
+            // --- FINALIZACIÓN DE TODO ---
+            // TODO (Fase 4): Lanzar Sonido de "Finalización" aquí
             notificationHelper.showAlarmNotification(AlarmType.ALL_DONE)
             ambientSoundPlayer.stop()
             _state.update { it.copy(isRunning = false) }
@@ -153,13 +154,23 @@ class TimerService : Service() {
     }
 
     private suspend fun countDown(totalSeconds: Int) {
-        for (s in totalSeconds downTo 1) {
-            _state.update { it.copy(secondsRemaining = s) }
-            notificationHelper.updateTimerNotification(
-                _state.value.currentTaskName,
-                timeFormatter.formatSeconds(s)
-            )
-            delay(1000)
+        val endTime = System.currentTimeMillis() + (totalSeconds * 1000L)
+
+        while (System.currentTimeMillis() < endTime) {
+            if (!_state.value.isRunning) break
+
+            val remainingMillis = endTime - System.currentTimeMillis()
+            val remainingSeconds = (remainingMillis / 1000).toInt()
+
+            if (remainingSeconds != _state.value.secondsRemaining) {
+                _state.update { it.copy(secondsRemaining = remainingSeconds) }
+                notificationHelper.updateTimerNotification(
+                    _state.value.currentTaskName,
+                    timeFormatter.formatSeconds(remainingSeconds)
+                )
+            }
+
+            delay(100L)
         }
         _state.update { it.copy(secondsRemaining = 0) }
     }
