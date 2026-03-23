@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".DoCatApp"
@@ -31,7 +32,10 @@
         </activity>
 
         <receiver android:name=".core.alarm.AlarmReceiver" android:exported="false" />
-        <service android:name=".core.service.TimerService" android:foregroundServiceType="mediaPlayback" />
+        <service
+            android:name=".core.service.TimerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 
 </manifest>

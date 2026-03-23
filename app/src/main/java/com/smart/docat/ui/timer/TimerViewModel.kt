@@ -64,4 +64,12 @@ class TimerViewModel @Inject constructor(
     fun stopTimer() {
         timerService?.stopTimer()
     }
+
+    fun startDailyTimer(date: String) {
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = TimerService.ACTION_START
+            putExtra(TimerService.EXTRA_DATE, date)
+        }
+        getApplication<Application>().startService(intent)
+    }
 }

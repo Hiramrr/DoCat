@@ -34,6 +34,9 @@ import com.smart.docat.ui.tasklist.TaskListViewModel
 import com.smart.docat.ui.newtask.NewTaskScreen
 import com.smart.docat.ui.newtask.NewTaskViewModel
 
+import com.smart.docat.ui.timer.TimerScreen
+import com.smart.docat.ui.timer.TimerViewModel
+
 sealed class Screen(val route: String) {
     object Calendar : Screen("calendar")
     object Home : Screen("home")
@@ -162,7 +165,11 @@ fun AppNavGraph() {
             }
 
             composable(Screen.Timer.route) {
-                // TODO: TimerScreen(navController)
+                val viewModel = hiltViewModel<TimerViewModel>()
+                TimerScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
         }
     }

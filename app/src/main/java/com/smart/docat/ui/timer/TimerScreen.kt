@@ -5,10 +5,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smart.docat.core.utils.TimeFormatter
 
 @Composable
 fun TimerScreen(
@@ -16,6 +18,13 @@ fun TimerScreen(
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.timerState.collectAsState()
+    val timeFormatter = TimeFormatter() // Instanciamos tu formateador
+
+    LaunchedEffect(Unit) {
+        if (!state.isRunning) {
+            viewModel.startDailyTimer(timeFormatter.formatDate())
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         // Crossfade crea una transición visual suave al cambiar de estado
