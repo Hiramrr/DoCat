@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "docat_preferences")
 
@@ -28,6 +30,14 @@ class AmbientSoundPlayer @Inject constructor(
 ) {
     private val player: ExoPlayer = ExoPlayer.Builder(context).build().apply {
         repeatMode = ExoPlayer.REPEAT_MODE_ONE
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build()
+
+        setAudioAttributes(audioAttributes, false)
+        setWakeMode(C.WAKE_MODE_LOCAL)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 

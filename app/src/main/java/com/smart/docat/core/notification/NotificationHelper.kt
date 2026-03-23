@@ -23,6 +23,7 @@ class NotificationHelper @Inject constructor(
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    private var mediaPlayer: MediaPlayer? = null
     companion object {
         const val CHANNEL_ID_TIMER = "docat_timer_channel"
         const val CHANNEL_ID_ALARM = "docat_alarm_channel"
@@ -113,17 +114,18 @@ class NotificationHelper @Inject constructor(
     }
 
     private fun playAlertSound(soundResId: Int) {
-        Thread {
-            try {
-                val mediaPlayer = MediaPlayer.create(context, soundResId)
-                mediaPlayer?.setOnCompletionListener {
-                    it.release()
-                }
-                mediaPlayer?.start()
-            } catch (e: Exception) {
-                e.printStackTrace()
+        try {
+            mediaPlayer?.release()
+
+            mediaPlayer = MediaPlayer.create(context, soundResId)
+            mediaPlayer?.setOnCompletionListener {
+                it.release()
+                mediaPlayer = null
             }
-        }.start()
+            mediaPlayer?.start()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     fun updateTimerNotification(taskName: String, timeRemaining: String) {
         notificationManager.notify(NOTIFICATION_ID_TIMER, buildTimerNotification(taskName, timeRemaining))
