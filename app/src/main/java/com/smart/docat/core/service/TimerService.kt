@@ -4,7 +4,6 @@ import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import com.smart.docat.core.alarm.AlarmScheduler
 import com.smart.docat.core.alarm.AlarmType
 import com.smart.docat.core.audio.AmbientSoundPlayer
 import com.smart.docat.core.notification.NotificationHelper
@@ -32,7 +31,6 @@ class TimerService : Service() {
 
     @Inject lateinit var taskRepository: TaskRepository
     @Inject lateinit var sessionHistoryRepository: SessionHistoryRepository
-    @Inject lateinit var alarmScheduler: AlarmScheduler
     @Inject lateinit var notificationHelper: NotificationHelper
     @Inject lateinit var ambientSoundPlayer: AmbientSoundPlayer
     @Inject lateinit var timeFormatter: TimeFormatter
@@ -57,6 +55,7 @@ class TimerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // NOTA: Asegúrate de que NotificationHelper tenga este método.
         notificationHelper.createNotificationChannels()
     }
 
@@ -93,9 +92,11 @@ class TimerService : Service() {
 
                 val sessionStart = System.currentTimeMillis()
 
+                // Ciclo Maestro: Repeticiones
                 for (rep in 0 until task.repeticiones) {
                     _state.update { it.copy(currentRepetition = rep) }
 
+                    // Ciclo Interno: Intervalos de Trabajo (Subtareas)
                     for ((subIndex, subTask) in task.subTareas.withIndex()) {
 
                         // --- FASE DE TRABAJO ---
@@ -106,15 +107,19 @@ class TimerService : Service() {
                             secondsRemaining = subTask.tiempoAsignado * 60
                         ) }
 
+                        // Disparar Alerta de Inicio de Trabajo
                         notificationHelper.showAlarmNotification(AlarmType.WORK_START)
                         ambientSoundPlayer.resume()
 
+                        // Ejecutar temporizador de trabajo
                         countDown(subTask.tiempoAsignado * 60)
 
+                        // Verificamos si estamos en el final absoluto de la tarea
                         val isLastRep = rep == task.repeticiones - 1
                         val isLastSubTask = subIndex == task.subTareas.size - 1
 
                         // --- FASE DE DESCANSO ---
+                        // Hay descanso siempre, EXCEPTO si es la última subtarea de la última repetición
                         if (!(isLastRep && isLastSubTask) && task.tiempoDescanso > 0) {
 
                             _state.update { it.copy(
@@ -122,14 +127,17 @@ class TimerService : Service() {
                                 secondsRemaining = task.tiempoDescanso * 60
                             ) }
 
+                            // Disparar Alerta de Inicio de Descanso
                             notificationHelper.showAlarmNotification(AlarmType.REST_START)
                             ambientSoundPlayer.pause()
 
+                            // Ejecutar temporizador de descanso
                             countDown(task.tiempoDescanso * 60)
                         }
                     }
                 }
 
+                // Guardar sesión
                 val elapsedSeconds = ((System.currentTimeMillis() - sessionStart) / 1000).toInt()
                 sessionHistoryRepository.saveSession(
                     SessionHistory(tareaId = task.id, fecha = date, tiempoReal = elapsedSeconds)
@@ -166,9 +174,9 @@ class TimerService : Service() {
                     timeFormatter.formatSeconds(remainingSeconds)
                 )
             }
-
             delay(100L)
         }
+
         _state.update { it.copy(secondsRemaining = 0) }
     }
 

@@ -56,15 +56,21 @@ class AmbientSoundPlayer @Inject constructor(
     }
 
     fun resume() {
-        if (!player.isPlaying) player.play()
+        scope.launch {
+            if (!player.isPlaying) player.play()
+        }
     }
 
     fun pause() {
-        if (player.isPlaying) player.pause()
+        scope.launch {
+            if (player.isPlaying) player.pause()
+        }
     }
 
     fun stop() {
-        player.stop()
+        scope.launch {
+            player.stop()
+        }
     }
 
     fun setVolume(volume: Float) {

@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.media.MediaPlayer
+import android.os.Build
 
 @Singleton
 class NotificationHelper @Inject constructor(
@@ -28,25 +29,28 @@ class NotificationHelper @Inject constructor(
         const val NOTIFICATION_ID_TIMER = 1
         const val NOTIFICATION_ID_ALARM = 2
     }
+    init {
+        createNotificationChannels()
+    }
 
     fun createNotificationChannels() {
-        val timerChannel = NotificationChannel(
-            CHANNEL_ID_TIMER,
-            "Temporizador activo",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Muestra el estado del temporizador en curso"
-            setSound(null, null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Canal para el servicio en segundo plano (Silencioso o baja prioridad)
+            val timerChannel = NotificationChannel(
+                CHANNEL_ID_TIMER,
+                "Temporizador Activo",
+                NotificationManager.IMPORTANCE_LOW
+            )
+
+            // Canal para las alertas de cambio de estado (Alta prioridad, que haga ruido y pop-up)
+            val alarmChannel = NotificationChannel(
+                CHANNEL_ID_ALARM,
+                "Alertas de Intervalo",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+
+            notificationManager.createNotificationChannels(listOf(timerChannel, alarmChannel))
         }
-        val alarmChannel = NotificationChannel(
-            CHANNEL_ID_ALARM,
-            "Alertas de actividad",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notificaciones al cambiar de actividad o finalizar"
-        }
-        notificationManager.createNotificationChannel(timerChannel)
-        notificationManager.createNotificationChannel(alarmChannel)
     }
 
     fun buildTimerNotification(taskName: String, timeRemaining: String): Notification {
@@ -109,16 +113,18 @@ class NotificationHelper @Inject constructor(
     }
 
     private fun playAlertSound(soundResId: Int) {
-        try {
-            val mediaPlayer = MediaPlayer.create(context, soundResId)
-            // Liberamos los recursos cuando el sonido termina
-            mediaPlayer.setOnCompletionListener { it.release() }
-            mediaPlayer.start()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        Thread {
+            try {
+                val mediaPlayer = MediaPlayer.create(context, soundResId)
+                mediaPlayer?.setOnCompletionListener {
+                    it.release()
+                }
+                mediaPlayer?.start()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
     }
-
     fun updateTimerNotification(taskName: String, timeRemaining: String) {
         notificationManager.notify(NOTIFICATION_ID_TIMER, buildTimerNotification(taskName, timeRemaining))
     }
