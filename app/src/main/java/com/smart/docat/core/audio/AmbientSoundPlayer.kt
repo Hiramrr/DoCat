@@ -22,6 +22,7 @@ import javax.inject.Singleton
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import android.util.Log
+import androidx.media3.common.Player
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "docat_preferences")
 
@@ -68,8 +69,17 @@ class AmbientSoundPlayer @Inject constructor(
 
     fun resume() {
         scope.launch {
-            Log.d("AudioDebug", "▶️ Forzando Play al sonido ambiental")
-            player.play() // Quitamos el if(!player.isPlaying)
+            Log.d("AudioDebug", "▶️ Forzando Play seguro")
+
+            val savedSoundName = context.dataStore.data.map { it[KEY_SELECTED_SOUND] }.first()
+            val currentSound = savedSoundName?.let { runCatching { AmbientSound.valueOf(it) }.getOrNull() }
+                ?: AmbientSound.RIO
+
+            val uri = android.net.Uri.parse("android.resource://${context.packageName}/${currentSound.resId}")
+            player.setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+
+            player.prepare()
+            player.play()
         }
     }
 
@@ -82,9 +92,10 @@ class AmbientSoundPlayer @Inject constructor(
 
     fun stop() {
         scope.launch {
-            Log.d("AudioDebug", "⏹️ Deteniendo el sonido ambiental")
+            Log.d("AudioDebug", "⏹️ Deteniendo el sonido ambiental y limpiando cola")
             player.pause()
-            player.seekTo(0)
+            player.stop()
+            player.clearMediaItems() // Limpiamos para que no queden zombies
         }
     }
 
