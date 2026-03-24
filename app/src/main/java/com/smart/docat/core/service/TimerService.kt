@@ -49,14 +49,14 @@ class TimerService : Service() {
         const val ACTION_START = "com.smart.docat.action.START"
         const val ACTION_STOP = "com.smart.docat.action.STOP"
         const val EXTRA_DATE = "extra_date"
-        const val EXTRA_TASK_ID = "extra_task_id"
+        const val EXTRA_TASK_IDS = "extra_task_ids"
+        const val EXTRA_INTER_TASK_REST = "extra_inter_task_rest" // NUEVO
     }
 
     override fun onBind(intent: Intent): IBinder = TimerBinder()
 
     override fun onCreate() {
         super.onCreate()
-        // NOTA: Asegúrate de que NotificationHelper tenga este método.
         notificationHelper.createNotificationChannels()
     }
 
@@ -64,21 +64,22 @@ class TimerService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val date = intent.getStringExtra(EXTRA_DATE)
-                val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L) // Leemos el ID
-                if (date != null) startTimer(date, taskId)
+                val taskIds = intent.getLongArrayExtra(EXTRA_TASK_IDS) ?: longArrayOf()
+                val interTaskRest = intent.getIntExtra(EXTRA_INTER_TASK_REST, 0)
+                if (date != null) startTimer(date, taskIds, interTaskRest)
             }
             ACTION_STOP -> stopTimer()
         }
         return START_STICKY
     }
 
-    private fun startTimer(date: String, targetTaskId: Long) {
+    private fun startTimer(date: String, taskIds: LongArray, interTaskRest: Int) {
         timerJob?.cancel()
         timerJob = serviceScope.launch {
             val allTasks = taskRepository.getTasksForDate(date).first()
 
-            // NUEVO: Filtramos si se mandó un ID específico. Si es -1, agarra todas.
-            val tasks = if (targetTaskId != -1L) allTasks.filter { it.id == targetTaskId } else allTasks
+            // Filtramos las tareas según la lista que mandó el usuario desde el diálogo
+            val tasks = if (taskIds.isNotEmpty()) allTasks.filter { taskIds.contains(it.id) } else allTasks
 
             if (tasks.isEmpty()) { stopSelf(); return@launch }
 
@@ -86,7 +87,6 @@ class TimerService : Service() {
                 NotificationHelper.NOTIFICATION_ID_TIMER,
                 notificationHelper.buildTimerNotification(
                     tasks.first().nombre,
-                    // YA NO SE MULTIPLICA POR 60
                     timeFormatter.formatSeconds(tasks.first().subTareas.first().tiempoAsignado)
                 )
             )
@@ -110,14 +110,12 @@ class TimerService : Service() {
                             isWorkPhase = true,
                             currentSubTaskIndex = subIndex,
                             currentSubTaskName = subTask.nombre,
-                            // YA NO SE MULTIPLICA POR 60
                             secondsRemaining = subTask.tiempoAsignado
                         ) }
 
                         notificationHelper.showAlarmNotification(AlarmType.WORK_START)
                         ambientSoundPlayer.resume()
 
-                        // YA NO SE MULTIPLICA POR 60
                         countDown(subTask.tiempoAsignado)
 
                         val isLastRep = rep == task.repeticiones - 1
@@ -126,14 +124,11 @@ class TimerService : Service() {
                         if (!(isLastRep && isLastSubTask) && task.tiempoDescanso > 0) {
                             _state.update { it.copy(
                                 isWorkPhase = false,
-                                // YA NO SE MULTIPLICA POR 60
                                 secondsRemaining = task.tiempoDescanso
                             ) }
 
                             notificationHelper.showAlarmNotification(AlarmType.REST_START)
                             ambientSoundPlayer.pause()
-
-                            // YA NO SE MULTIPLICA POR 60
                             countDown(task.tiempoDescanso)
                         }
                     }
@@ -145,8 +140,23 @@ class TimerService : Service() {
                 )
 
                 val isLastTask = taskIndex == tasks.size - 1
+
                 if (!isLastTask) {
+                    // Terminó una tarea, pero aún faltan otras. Lanzamos alerta de completado.
                     notificationHelper.showAlarmNotification(AlarmType.SERIES_COMPLETE)
+
+                    // NUEVO: Tiempo de descanso entre TAREAS DISTINTAS
+                    if (interTaskRest > 0) {
+                        _state.update { it.copy(
+                            isWorkPhase = false,
+                            secondsRemaining = interTaskRest,
+                            currentSubTaskName = "Transición a siguiente misión" // Mensaje claro para el usuario
+                        ) }
+                        // Lanzamos alerta de descanso y pausamos el ruido blanco
+                        notificationHelper.showAlarmNotification(AlarmType.REST_START)
+                        ambientSoundPlayer.pause()
+                        countDown(interTaskRest)
+                    }
                 }
             }
 

@@ -65,10 +65,12 @@ class TimerViewModel @Inject constructor(
         timerService?.stopTimer()
     }
 
-    fun startDailyTimer(date: String) {
+    fun startDailyTimer(date: String, taskIds: LongArray, interTaskRest: Int) {
         val intent = Intent(getApplication(), TimerService::class.java).apply {
             action = TimerService.ACTION_START
             putExtra(TimerService.EXTRA_DATE, date)
+            putExtra(TimerService.EXTRA_TASK_IDS, taskIds) // Ahora mandamos el Array
+            putExtra(TimerService.EXTRA_INTER_TASK_REST, interTaskRest) // El tiempo de transición
         }
         getApplication<Application>().startService(intent)
     }

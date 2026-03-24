@@ -26,7 +26,6 @@ import androidx.navigation.navArgument
 import com.smart.docat.ui.calendar.CalendarScreen
 import com.smart.docat.ui.calendar.CalendarViewModel
 
-// Importamos nuestras pantallas y ViewModels
 import com.smart.docat.ui.home.HomeScreen
 import com.smart.docat.ui.home.HomeViewModel
 import com.smart.docat.ui.tasklist.TaskListScreen
@@ -44,11 +43,16 @@ sealed class Screen(val route: String) {
     object TaskList : Screen("tasklist")
     object Ambientsound : Screen("ambient")
     object NewTask : Screen("newtask?taskId={taskId}") {
-        // CORREGIDO: Si es null, navegamos a "newtask", si tiene ID navegamos a "newtask?taskId=5"
         fun createRoute(taskId: Long? = null) =
             if (taskId == null) "newtask" else "newtask?taskId=$taskId"
     }
-    object Timer : Screen("timer")
+
+    object Timer : Screen("timer?taskIds={taskIds}&rest={rest}") {
+        fun createRoute(taskIds: List<Long>, rest: Int = 0): String {
+            val idsParam = taskIds.joinToString(",")
+            return "timer?taskIds=$idsParam&rest=$rest"
+        }
+    }
 }
 
 private data class BottomNavItem(
@@ -106,28 +110,30 @@ fun AppNavGraph() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route, // CAMBIADO a Home temporalmente para poder probar
+            startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // Calendar se define más abajo con su ViewModel
 
-            // 1. Pantalla de Inicio
             composable(Screen.Home.route) {
                 val viewModel = hiltViewModel<HomeViewModel>()
                 HomeScreen(
                     viewModel = viewModel,
-                    onStartActivityClick = { navController.navigate(Screen.Timer.route) },
+                    onStartActivityClick = { ids, rest ->
+                        navController.navigate(Screen.Timer.createRoute(ids, rest))
+                    },
                     onNavigateToTasksClick = { navController.navigate(Screen.TaskList.route) }
                 )
             }
 
-            // 2. Lista de Tareas
             composable(Screen.TaskList.route) {
                 val viewModel = hiltViewModel<TaskListViewModel>()
                 TaskListScreen(
                     viewModel = viewModel,
                     onNavigateToNewTask = { taskId ->
                         navController.navigate(Screen.NewTask.createRoute(taskId))
+                    },
+                    onNavigateToTimer = { taskId ->
+                        navController.navigate(Screen.Timer.createRoute(listOf(taskId), 0))
                     },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -137,7 +143,6 @@ fun AppNavGraph() {
                 AmbientSoundScreen()
             }
 
-            // 3. Crear/Editar Tarea
             composable(
                 route = Screen.NewTask.route,
                 arguments = listOf(
@@ -149,7 +154,6 @@ fun AppNavGraph() {
             ) { backStackEntry ->
                 val taskIdArg = backStackEntry.arguments?.getLong("taskId") ?: -1L
                 val taskId = if (taskIdArg == -1L) null else taskIdArg
-
                 val viewModel = hiltViewModel<NewTaskViewModel>()
                 NewTaskScreen(
                     taskId = taskId,
@@ -158,17 +162,29 @@ fun AppNavGraph() {
                 )
             }
 
-            composable(Screen.Calendar.route) {
-                val viewModel = hiltViewModel<CalendarViewModel>()
-                CalendarScreen(viewModel = viewModel)
-            }
+            composable(
+                route = Screen.Timer.route,
+                arguments = listOf(
+                    navArgument("taskIds") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("rest") { type = NavType.IntType; defaultValue = 0 }
+                )
+            ) { backStackEntry ->
+                val idsString = backStackEntry.arguments?.getString("taskIds") ?: ""
+                val rest = backStackEntry.arguments?.getInt("rest") ?: 0
+                val taskIds = if (idsString.isNotBlank()) idsString.split(",").mapNotNull { it.toLongOrNull() } else emptyList()
 
-            composable(Screen.Timer.route) {
                 val viewModel = hiltViewModel<TimerViewModel>()
                 TimerScreen(
+                    taskIds = taskIds,
+                    interTaskRest = rest,
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Screen.Calendar.route) {
+                val viewModel = hiltViewModel<CalendarViewModel>()
+                CalendarScreen(viewModel = viewModel)
             }
         }
     }

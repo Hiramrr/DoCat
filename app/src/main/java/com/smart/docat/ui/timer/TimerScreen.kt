@@ -14,15 +14,17 @@ import com.smart.docat.core.utils.TimeFormatter
 
 @Composable
 fun TimerScreen(
+    taskIds: List<Long> = emptyList(), // Lista de IDs
+    interTaskRest: Int = 0, // Descanso entre tareas
     viewModel: TimerViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.timerState.collectAsState()
-    val timeFormatter = TimeFormatter() // Instanciamos tu formateador
+    val timeFormatter = TimeFormatter()
 
     LaunchedEffect(Unit) {
         if (!state.isRunning) {
-            viewModel.startDailyTimer(timeFormatter.formatDate())
+            viewModel.startDailyTimer(timeFormatter.formatDate(), taskIds.toLongArray(), interTaskRest)
         }
     }
 

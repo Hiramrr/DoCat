@@ -18,16 +18,15 @@ import com.smart.docat.ui.components.TaskCard
 @Composable
 fun TaskListScreen(
     viewModel: TaskListViewModel,
-    onNavigateToNewTask: (Long?) -> Unit, // Cambiado de Int? a Long?
+    onNavigateToNewTask: (Long?) -> Unit,
+    onNavigateToTimer: (Long) -> Unit,
     onBackClick: () -> Unit
 ) {
     val tasks by viewModel.tasks.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mis Misiones de Hoy", fontWeight = FontWeight.Bold) }
-            )
+            TopAppBar(title = { Text("Mis Misiones de Hoy", fontWeight = FontWeight.Bold) })
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -39,10 +38,7 @@ fun TaskListScreen(
         }
     ) { paddingValues ->
         if (tasks.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 Text(
                     text = "No tienes misiones para hoy.\n¡Agrega una nueva!",
                     style = MaterialTheme.typography.bodyLarge,
@@ -52,10 +48,7 @@ fun TaskListScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -64,7 +57,8 @@ fun TaskListScreen(
                     TaskCard(
                         task = task,
                         onStatusToggle = { viewModel.toggleTaskStatus(it) },
-                        onEditClick = { onNavigateToNewTask(it.id) }
+                        onEditClick = { onNavigateToNewTask(it.id) },
+                        onPlayClick = { onNavigateToTimer(it) }
                     )
                 }
 
