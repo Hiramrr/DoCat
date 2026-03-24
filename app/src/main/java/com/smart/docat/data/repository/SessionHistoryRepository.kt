@@ -27,6 +27,30 @@ class SessionHistoryRepository(
     suspend fun saveSession(sessionHistory: SessionHistory) {
         sessionHistoryDao.insertSessionHistory(sessionHistory.toEntity())
     }
+
+    suspend fun getAllActiveDates(): Set<String> {
+        return sessionHistoryDao.getAllActiveDates().toSet()
+    }
+
+    suspend fun getSessionCountForMonth(monthPrefix: String): Int {
+        return sessionHistoryDao.getSessionCountForMonth(monthPrefix)
+    }
+
+    suspend fun getTotalTimeForMonth(monthPrefix: String): Int {
+        return sessionHistoryDao.getTotalTimeForMonth(monthPrefix)
+    }
+
+    suspend fun getActiveDayCountForMonth(monthPrefix: String): Int {
+        return sessionHistoryDao.getActiveDayCountForMonth(monthPrefix)
+    }
+
+    suspend fun getTotalTimeForDateSync(fecha: String): Int {
+        return sessionHistoryDao.getTotalTimeForDateSync(fecha)
+    }
+
+    suspend fun getSessionCountForDate(fecha: String): Int {
+        return sessionHistoryDao.getSessionCountForDate(fecha)
+    }
 }
 
 private fun SessionHistoryEntity.toDomain(): SessionHistory {

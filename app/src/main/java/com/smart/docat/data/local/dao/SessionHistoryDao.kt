@@ -32,4 +32,21 @@ interface SessionHistoryDao{
     @Delete
     suspend fun deleteSessionHistory(sessionHistory: SessionHistoryEntity)
 
+    @Query("SELECT DISTINCT fecha FROM session_history")
+    suspend fun getAllActiveDates(): List<String>
+
+    @Query("SELECT COUNT(*) FROM session_history WHERE fecha LIKE :monthPrefix || '%'")
+    suspend fun getSessionCountForMonth(monthPrefix: String): Int
+
+    @Query("SELECT COALESCE(SUM(tiempo_real), 0) FROM session_history WHERE fecha LIKE :monthPrefix || '%'")
+    suspend fun getTotalTimeForMonth(monthPrefix: String): Int
+
+    @Query("SELECT COUNT(DISTINCT fecha) FROM session_history WHERE fecha LIKE :monthPrefix || '%'")
+    suspend fun getActiveDayCountForMonth(monthPrefix: String): Int
+
+    @Query("SELECT COALESCE(SUM(tiempo_real), 0) FROM session_history WHERE fecha = :fecha")
+    suspend fun getTotalTimeForDateSync(fecha: String): Int
+
+    @Query("SELECT COUNT(*) FROM session_history WHERE fecha = :fecha")
+    suspend fun getSessionCountForDate(fecha: String): Int
 }

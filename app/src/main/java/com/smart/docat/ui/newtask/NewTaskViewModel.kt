@@ -1,5 +1,6 @@
 package com.smart.docat.ui.newtask
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smart.docat.core.utils.TimeFormatter
@@ -7,9 +8,12 @@ import com.smart.docat.domain.model.SubTask
 import com.smart.docat.domain.model.Task
 import com.smart.docat.domain.model.TaskStatus
 import com.smart.docat.domain.usecase.SaveTaskUseCase
-import com.smart.docat.data.repository.TaskRepository // Asumo que lo usas para cargar la tarea si es edición
+import com.smart.docat.data.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,7 +38,11 @@ class NewTaskViewModel @Inject constructor(
     private val _subTasks = MutableStateFlow<List<SubTask>>(emptyList())
     val subTasks = _subTasks.asStateFlow()
 
-    // Variable para saber si estamos editando (guardará el ID de la tarea)
+    // Toggle para elegir entre minutos y segundos
+    private val _isUsingSeconds = MutableStateFlow(false)
+    val isUsingSeconds = _isUsingSeconds.asStateFlow()
+
+    // Variable para saber si estamos editando
     private var currentTaskId: Long = 0L
 
     // Funciones para actualizar el estado desde la UI
@@ -42,15 +50,21 @@ class NewTaskViewModel @Inject constructor(
     fun onRepetitionsChange(newReps: String) { _repetitions.value = newReps }
     fun onRestTimeChange(newTime: String) { _restTime.value = newTime }
 
+    fun toggleTimeUnit() {
+        _isUsingSeconds.value = !_isUsingSeconds.value
+    }
+
     fun addSubTask(name: String, time: String) {
         if (name.isNotBlank() && time.isNotBlank()) {
             val timeInt = time.toIntOrNull() ?: 0
+            // Si está en minutos, convertir a segundos; si está en segundos, guardar directo
+            val timeInSeconds = if (_isUsingSeconds.value) timeInt else timeInt * 60
             val nextOrder = _subTasks.value.size + 1
             val newSubTask = SubTask(
                 id = 0L,
                 tareaId = currentTaskId,
                 nombre = name,
-                tiempoAsignado = timeInt,
+                tiempoAsignado = timeInSeconds,
                 orden = nextOrder
             )
             _subTasks.value = _subTasks.value + newSubTask
@@ -77,22 +91,31 @@ class NewTaskViewModel @Inject constructor(
         }
     }
 
+    // Evento de navegación hacia atrás
+    private val _navigateBack = MutableSharedFlow<Unit>()
+    val navigateBack: SharedFlow<Unit> = _navigateBack.asSharedFlow()
+
     // Guardar la tarea
-    fun saveTask(onSuccess: () -> Unit) {
+    fun saveTask() {
         viewModelScope.launch {
-            val totalWorkTime = _subTasks.value.sumOf { it.tiempoAsignado }
-            val task = Task(
-                id = currentTaskId, // 0L si es nueva, o el ID actual si es edición
-                nombre = _taskName.value,
-                tiempoTrabajo = totalWorkTime,
-                repeticiones = _repetitions.value.toIntOrNull() ?: 1,
-                tiempoDescanso = _restTime.value.toIntOrNull() ?: 5,
-                subTareas = _subTasks.value,
-                estado = TaskStatus.IN_PROGRESS, // O el estado por defecto que uses
-                fecha = timeFormatter.formatDate() // Asumiendo que guardas la fecha de hoy
-            )
-            saveTaskUseCase(task)
-            onSuccess()
+            try {
+                val totalWorkTime = _subTasks.value.sumOf { it.tiempoAsignado }
+                val task = Task(
+                    id = currentTaskId,
+                    nombre = _taskName.value,
+                    tiempoTrabajo = totalWorkTime,
+                    repeticiones = _repetitions.value.toIntOrNull() ?: 1,
+                    tiempoDescanso = _restTime.value.toIntOrNull() ?: 5,
+                    subTareas = _subTasks.value,
+                    estado = TaskStatus.IN_PROGRESS,
+                    fecha = timeFormatter.formatDate()
+                )
+                saveTaskUseCase(task)
+            } catch (e: Exception) {
+                Log.e("NewTaskVM", "Error al guardar tarea", e)
+            }
+            // Siempre navegar de regreso, incluso si hay error
+            _navigateBack.emit(Unit)
         }
     }
 }

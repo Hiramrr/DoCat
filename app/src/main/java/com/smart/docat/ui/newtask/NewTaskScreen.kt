@@ -19,14 +19,21 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTaskScreen(
-    taskId: Long?, // Recibe el ID si es edición, o null si es nueva
+    taskId: Long?,
     viewModel: NewTaskViewModel,
     onNavigateBack: () -> Unit
 ) {
-    // Cargar la tarea si venimos en modo edición (se ejecuta solo una vez)
+    // Cargar la tarea si venimos en modo edición
     LaunchedEffect(taskId) {
         if (taskId != null) {
             viewModel.loadTask(taskId)
+        }
+    }
+
+    // Observar evento de navegación
+    LaunchedEffect(Unit) {
+        viewModel.navigateBack.collect {
+            onNavigateBack()
         }
     }
 
@@ -35,6 +42,7 @@ fun NewTaskScreen(
     val repetitions by viewModel.repetitions.collectAsState()
     val restTime by viewModel.restTime.collectAsState()
     val subTasks by viewModel.subTasks.collectAsState()
+    val isUsingSeconds by viewModel.isUsingSeconds.collectAsState()
 
     // Estados temporales para el mini-formulario de agregar subtarea
     var newSubTaskName by remember { mutableStateOf("") }
@@ -54,11 +62,11 @@ fun NewTaskScreen(
         bottomBar = {
             BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
                 Button(
-                    onClick = { viewModel.saveTask(onSuccess = onNavigateBack) },
+                    onClick = { viewModel.saveTask() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    enabled = taskName.isNotBlank() && subTasks.isNotEmpty() // Validación básica
+                    enabled = taskName.isNotBlank() && subTasks.isNotEmpty()
                 ) {
                     Text("GUARDAR MISIÓN")
                 }
@@ -113,7 +121,28 @@ fun NewTaskScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Subtareas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
-                // Mini-formulario para agregar subtarea
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Toggle Min / Seg
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Unidad de tiempo:", style = MaterialTheme.typography.bodyMedium)
+                    FilterChip(
+                        selected = !isUsingSeconds,
+                        onClick = { if (isUsingSeconds) viewModel.toggleTimeUnit() },
+                        label = { Text("Min") }
+                    )
+                    FilterChip(
+                        selected = isUsingSeconds,
+                        onClick = { if (!isUsingSeconds) viewModel.toggleTimeUnit() },
+                        label = { Text("Seg") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -129,7 +158,7 @@ fun NewTaskScreen(
                     OutlinedTextField(
                         value = newSubTaskTime,
                         onValueChange = { newSubTaskTime = it },
-                        label = { Text("Min") },
+                        label = { Text(if (isUsingSeconds) "Seg" else "Min") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
@@ -162,7 +191,10 @@ fun NewTaskScreen(
                     ) {
                         Column {
                             Text(text = subTask.nombre, style = MaterialTheme.typography.bodyLarge)
-                            Text(text = "${subTask.tiempoAsignado} min", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = formatSubTaskTime(subTask.tiempoAsignado),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                         IconButton(onClick = { viewModel.removeSubTask(subTask) }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Eliminar subtarea", tint = MaterialTheme.colorScheme.error)
@@ -171,5 +203,13 @@ fun NewTaskScreen(
                 }
             }
         }
+    }
+}
+
+private fun formatSubTaskTime(seconds: Int): String {
+    return when {
+        seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
+        seconds >= 60 -> "${seconds / 60} min ${seconds % 60} seg"
+        else -> "$seconds seg"
     }
 }

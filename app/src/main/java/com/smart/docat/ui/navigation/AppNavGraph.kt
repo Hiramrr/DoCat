@@ -33,6 +33,7 @@ import com.smart.docat.ui.tasklist.TaskListScreen
 import com.smart.docat.ui.tasklist.TaskListViewModel
 import com.smart.docat.ui.newtask.NewTaskScreen
 import com.smart.docat.ui.newtask.NewTaskViewModel
+import com.smart.docat.ui.ambient.AmbientSoundScreen
 
 import com.smart.docat.ui.timer.TimerScreen
 import com.smart.docat.ui.timer.TimerViewModel
@@ -108,9 +109,7 @@ fun AppNavGraph() {
             startDestination = Screen.Home.route, // CAMBIADO a Home temporalmente para poder probar
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Calendar.route) {
-                // TODO: CalendarScreen(navController)
-            }
+            // Calendar se define más abajo con su ViewModel
 
             // 1. Pantalla de Inicio
             composable(Screen.Home.route) {
@@ -135,7 +134,7 @@ fun AppNavGraph() {
             }
 
             composable(Screen.Ambientsound.route) {
-                // TODO: AmbientSoundScreen(navController)
+                AmbientSoundScreen()
             }
 
             // 3. Crear/Editar Tarea
