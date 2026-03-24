@@ -77,13 +77,21 @@ class TimerService : Service() {
 
     private fun togglePause() {
         val isCurrentlyPaused = _state.value.isPaused
-        _state.update { it.copy(isPaused = !isCurrentlyPaused) }
 
         if (!isCurrentlyPaused) {
+            _state.update { it.copy(isPaused = true) }
+
             ambientSoundPlayer.pause()
+
+            notificationHelper.stopAlarm()
             notificationHelper.updateTimerNotification("Pausado", "La misión está en pausa")
+
         } else {
-            if (_state.value.isWorkPhase) ambientSoundPlayer.resume()
+            _state.update { it.copy(isPaused = false) }
+
+            if (_state.value.isWorkPhase) {
+                ambientSoundPlayer.resume()
+            }
         }
     }
 
@@ -214,7 +222,11 @@ class TimerService : Service() {
     }
     private fun stopTimer() {
         timerJob?.cancel()
+
         ambientSoundPlayer.stop()
+
+        notificationHelper.stopAlarm()
+
         _state.update { it.copy(isRunning = false, isPaused = false) }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

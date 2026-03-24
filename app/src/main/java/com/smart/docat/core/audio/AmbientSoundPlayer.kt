@@ -21,6 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import android.util.Log
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "docat_preferences")
 
@@ -67,19 +68,23 @@ class AmbientSoundPlayer @Inject constructor(
 
     fun resume() {
         scope.launch {
-            if (!player.isPlaying) player.play()
+            Log.d("AudioDebug", "▶️ Forzando Play al sonido ambiental")
+            player.play() // Quitamos el if(!player.isPlaying)
         }
     }
 
     fun pause() {
         scope.launch {
-            if (player.isPlaying) player.pause()
+            Log.d("AudioDebug", "⏸️ Forzando Pausa al sonido ambiental")
+            player.pause()
         }
     }
 
     fun stop() {
         scope.launch {
-            player.stop()
+            Log.d("AudioDebug", "⏹️ Deteniendo el sonido ambiental")
+            player.pause()
+            player.seekTo(0)
         }
     }
 

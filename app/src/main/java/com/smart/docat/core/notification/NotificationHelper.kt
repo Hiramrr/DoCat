@@ -130,4 +130,16 @@ class NotificationHelper @Inject constructor(
     fun updateTimerNotification(taskName: String, timeRemaining: String) {
         notificationManager.notify(NOTIFICATION_ID_TIMER, buildTimerNotification(taskName, timeRemaining))
     }
+
+    fun stopAlarm() {
+        try {
+            mediaPlayer?.takeIf { it.isPlaying }?.let {
+                it.stop()
+                it.release()
+            }
+            mediaPlayer = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
