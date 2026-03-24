@@ -12,10 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smart.docat.core.utils.TimeFormatter
 
+
 @Composable
 fun TimerScreen(
-    taskIds: List<Long> = emptyList(), // Lista de IDs
-    interTaskRest: Int = 0, // Descanso entre tareas
+    taskIds: List<Long> = emptyList(),
+    interTaskRest: Int = 0,
     viewModel: TimerViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
@@ -29,10 +30,9 @@ fun TimerScreen(
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        // Crossfade crea una transición visual suave al cambiar de estado
         Crossfade(
             targetState = state.isWorkPhase,
-            animationSpec = tween(durationMillis = 800), // 800ms de transición
+            animationSpec = tween(durationMillis = 800),
             label = "Timer Phase Transition"
         ) { isWorkPhase ->
             if (isWorkPhase) {
@@ -41,7 +41,8 @@ fun TimerScreen(
                     onStopClick = {
                         viewModel.stopTimer()
                         onNavigateBack()
-                    }
+                    },
+                    onPauseToggle = { viewModel.togglePause() }
                 )
             } else {
                 RestTimerScreen(
@@ -49,7 +50,8 @@ fun TimerScreen(
                     onStopClick = {
                         viewModel.stopTimer()
                         onNavigateBack()
-                    }
+                    },
+                    onPauseToggle = { viewModel.togglePause() }
                 )
             }
         }

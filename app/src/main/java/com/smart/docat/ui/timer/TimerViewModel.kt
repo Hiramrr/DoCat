@@ -62,7 +62,17 @@ class TimerViewModel @Inject constructor(
     }
 
     fun stopTimer() {
-        timerService?.stopTimer()
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = TimerService.ACTION_STOP
+        }
+        getApplication<Application>().startService(intent)
+    }
+
+    fun togglePause() {
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = TimerService.ACTION_TOGGLE_PAUSE
+        }
+        getApplication<Application>().startService(intent)
     }
 
     fun startDailyTimer(date: String, taskIds: LongArray, interTaskRest: Int) {

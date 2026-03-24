@@ -50,7 +50,8 @@ class TimerService : Service() {
         const val ACTION_STOP = "com.smart.docat.action.STOP"
         const val EXTRA_DATE = "extra_date"
         const val EXTRA_TASK_IDS = "extra_task_ids"
-        const val EXTRA_INTER_TASK_REST = "extra_inter_task_rest" // NUEVO
+        const val EXTRA_INTER_TASK_REST = "extra_inter_task_rest"
+        const val ACTION_TOGGLE_PAUSE = "com.smart.docat.action.TOGGLE_PAUSE"
     }
 
     override fun onBind(intent: Intent): IBinder = TimerBinder()
@@ -68,9 +69,22 @@ class TimerService : Service() {
                 val interTaskRest = intent.getIntExtra(EXTRA_INTER_TASK_REST, 0)
                 if (date != null) startTimer(date, taskIds, interTaskRest)
             }
+            ACTION_TOGGLE_PAUSE -> togglePause()
             ACTION_STOP -> stopTimer()
         }
         return START_STICKY
+    }
+
+    private fun togglePause() {
+        val isCurrentlyPaused = _state.value.isPaused
+        _state.update { it.copy(isPaused = !isCurrentlyPaused) }
+
+        if (!isCurrentlyPaused) {
+            ambientSoundPlayer.pause()
+            notificationHelper.updateTimerNotification("Pausado", "La misión está en pausa")
+        } else {
+            if (_state.value.isWorkPhase) ambientSoundPlayer.resume()
+        }
     }
 
     private fun startTimer(date: String, taskIds: LongArray, interTaskRest: Int) {
@@ -169,35 +183,42 @@ class TimerService : Service() {
     }
 
     private suspend fun countDown(totalSeconds: Int) {
-        val endTime = System.currentTimeMillis() + (totalSeconds * 1000L)
+        var remaining = totalSeconds
+        var endTime = System.currentTimeMillis() + (remaining * 1000L)
 
-        while (System.currentTimeMillis() < endTime) {
+        while (remaining > 0) {
             if (!_state.value.isRunning) break
 
-            val remainingMillis = endTime - System.currentTimeMillis()
-            val remainingSeconds = (remainingMillis / 1000).toInt()
+            if (_state.value.isPaused) {
+                delay(100L)
+                endTime = System.currentTimeMillis() + (remaining * 1000L) // Empujamos el tiempo
+                continue
+            }
 
-            if (remainingSeconds != _state.value.secondsRemaining) {
-                _state.update { it.copy(secondsRemaining = remainingSeconds) }
+            val remainingMillis = endTime - System.currentTimeMillis()
+            remaining = (remainingMillis / 1000).toInt()
+
+            if (remaining != _state.value.secondsRemaining) {
+                _state.update { it.copy(secondsRemaining = remaining) }
                 notificationHelper.updateTimerNotification(
                     _state.value.currentTaskName,
-                    timeFormatter.formatSeconds(remainingSeconds)
+                    timeFormatter.formatSeconds(remaining)
                 )
             }
             delay(100L)
         }
 
-        _state.update { it.copy(secondsRemaining = 0) }
+        if (_state.value.isRunning) {
+            _state.update { it.copy(secondsRemaining = 0) }
+        }
     }
-
-    fun stopTimer() {
+    private fun stopTimer() {
         timerJob?.cancel()
         ambientSoundPlayer.stop()
-        _state.update { it.copy(isRunning = false) }
+        _state.update { it.copy(isRunning = false, isPaused = false) }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
-
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()

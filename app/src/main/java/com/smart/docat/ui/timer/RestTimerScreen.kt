@@ -3,6 +3,8 @@ package com.smart.docat.ui.timer
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +20,8 @@ import com.smart.docat.ui.components.TimerDisplay
 @Composable
 fun RestTimerScreen(
     state: TimerState,
-    onStopClick: () -> Unit
+    onStopClick: () -> Unit,
+    onPauseToggle: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -27,14 +30,21 @@ fun RestTimerScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Cabecera
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                // BOTÓN DE PAUSA
+                IconButton(onClick = onPauseToggle) {
+                    Icon(
+                        imageVector = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                        contentDescription = if (state.isPaused) "Reanudar" else "Pausar",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 IconButton(onClick = onStopClick) {
-                    Icon(Icons.Filled.Close, contentDescription = "Detener Temporizador")
+                    Icon(Icons.Filled.Close, contentDescription = "Detener Temporizador", tint = MaterialTheme.colorScheme.error)
                 }
             }
             Text(
@@ -51,7 +61,6 @@ fun RestTimerScreen(
             )
         }
 
-        // Centro: Gato y Reloj
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -60,7 +69,8 @@ fun RestTimerScreen(
             TimerDisplay(seconds = state.secondsRemaining)
         }
 
-        // Pie: Frase de descanso
-        MotivationalPhrase(phrase = "¡Sigue así, estás haciendo un gran trabajo!")
+        MotivationalPhrase(
+            phrase = if (state.isPaused) "Descanso en pausa." else "Respira profundo y recupera energía."
+        )
     }
 }
