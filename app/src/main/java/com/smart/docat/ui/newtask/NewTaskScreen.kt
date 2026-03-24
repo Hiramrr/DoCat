@@ -23,28 +23,16 @@ fun NewTaskScreen(
     viewModel: NewTaskViewModel,
     onNavigateBack: () -> Unit
 ) {
-    // Cargar la tarea si venimos en modo edición
     LaunchedEffect(taskId) {
-        if (taskId != null) {
-            viewModel.loadTask(taskId)
-        }
+        if (taskId != null) viewModel.loadTask(taskId)
     }
 
-    // Observar evento de navegación
-    LaunchedEffect(Unit) {
-        viewModel.navigateBack.collect {
-            onNavigateBack()
-        }
-    }
-
-    // Observar estados
     val taskName by viewModel.taskName.collectAsState()
     val repetitions by viewModel.repetitions.collectAsState()
     val restTime by viewModel.restTime.collectAsState()
     val subTasks by viewModel.subTasks.collectAsState()
-    val isUsingSeconds by viewModel.isUsingSeconds.collectAsState()
+    val isSecondsMode by viewModel.isSecondsMode.collectAsState() // Observamos el modo
 
-    // Estados temporales para el mini-formulario de agregar subtarea
     var newSubTaskName by remember { mutableStateOf("") }
     var newSubTaskTime by remember { mutableStateOf("") }
 
@@ -53,34 +41,48 @@ fun NewTaskScreen(
             TopAppBar(
                 title = { Text(if (taskId == null) "Nueva Misión" else "Editar Misión") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
-                    }
+                    IconButton(onClick = onNavigateBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") }
                 }
             )
         },
         bottomBar = {
             BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
                 Button(
-                    onClick = { viewModel.saveTask() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    onClick = { viewModel.saveTask(onSuccess = onNavigateBack) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     enabled = taskName.isNotBlank() && subTasks.isNotEmpty()
-                ) {
-                    Text("GUARDAR MISIÓN")
-                }
+                ) { Text("GUARDAR MISIÓN") }
             }
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Nombre de la Tarea
+
+            // NUEVO: Selector de Minutos / Segundos
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("Ingresar tiempos en:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    FilterChip(
+                        selected = !isSecondsMode,
+                        onClick = { viewModel.toggleTimeMode(false) },
+                        label = { Text("Minutos") }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = isSecondsMode,
+                        onClick = { viewModel.toggleTimeMode(true) },
+                        label = { Text("Segundos") }
+                    )
+                }
+            }
+
             item {
                 OutlinedTextField(
                     value = taskName,
@@ -91,12 +93,8 @@ fun NewTaskScreen(
                 )
             }
 
-            // 2. Fila para Repeticiones y Descanso
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = repetitions,
                         onValueChange = { viewModel.onRepetitionsChange(it) },
@@ -108,7 +106,8 @@ fun NewTaskScreen(
                     OutlinedTextField(
                         value = restTime,
                         onValueChange = { viewModel.onRestTimeChange(it) },
-                        label = { Text("Descanso (min)") },
+                        // El texto cambia dinámicamente
+                        label = { Text(if (isSecondsMode) "Descanso (seg)" else "Descanso (min)") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
@@ -116,32 +115,9 @@ fun NewTaskScreen(
                 }
             }
 
-            // 3. Sección de Subtareas
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Subtareas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Toggle Min / Seg
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Unidad de tiempo:", style = MaterialTheme.typography.bodyMedium)
-                    FilterChip(
-                        selected = !isUsingSeconds,
-                        onClick = { if (isUsingSeconds) viewModel.toggleTimeUnit() },
-                        label = { Text("Min") }
-                    )
-                    FilterChip(
-                        selected = isUsingSeconds,
-                        onClick = { if (!isUsingSeconds) viewModel.toggleTimeUnit() },
-                        label = { Text("Seg") }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -158,7 +134,8 @@ fun NewTaskScreen(
                     OutlinedTextField(
                         value = newSubTaskTime,
                         onValueChange = { newSubTaskTime = it },
-                        label = { Text(if (isUsingSeconds) "Seg" else "Min") },
+                        // El texto cambia dinámicamente
+                        label = { Text(if (isSecondsMode) "Seg" else "Min") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
@@ -170,46 +147,31 @@ fun NewTaskScreen(
                             newSubTaskTime = ""
                         },
                         colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Agregar subtarea")
-                    }
+                    ) { Icon(Icons.Filled.Add, contentDescription = "Agregar subtarea") }
                 }
             }
 
-            // 4. Lista de Subtareas agregadas
             items(subTasks) { subTask ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
                             Text(text = subTask.nombre, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                text = formatSubTaskTime(subTask.tiempoAsignado),
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            // La subtarea ahora muestra siempre segundos reales (que es lo que se guarda)
+                            Text(text = "${subTask.tiempoAsignado} seg totales", style = MaterialTheme.typography.bodySmall)
                         }
                         IconButton(onClick = { viewModel.removeSubTask(subTask) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar subtarea", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
         }
-    }
-}
-
-private fun formatSubTaskTime(seconds: Int): String {
-    return when {
-        seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
-        seconds >= 60 -> "${seconds / 60} min ${seconds % 60} seg"
-        else -> "$seconds seg"
     }
 }

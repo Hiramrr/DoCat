@@ -49,6 +49,7 @@ class TimerService : Service() {
         const val ACTION_START = "com.smart.docat.action.START"
         const val ACTION_STOP = "com.smart.docat.action.STOP"
         const val EXTRA_DATE = "extra_date"
+        const val EXTRA_TASK_ID = "extra_task_id"
     }
 
     override fun onBind(intent: Intent): IBinder = TimerBinder()
@@ -61,23 +62,32 @@ class TimerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> intent.getStringExtra(EXTRA_DATE)?.let { startTimer(it) }
+            ACTION_START -> {
+                val date = intent.getStringExtra(EXTRA_DATE)
+                val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L) // Leemos el ID
+                if (date != null) startTimer(date, taskId)
+            }
             ACTION_STOP -> stopTimer()
         }
         return START_STICKY
     }
 
-    private fun startTimer(date: String) {
+    private fun startTimer(date: String, targetTaskId: Long) {
         timerJob?.cancel()
         timerJob = serviceScope.launch {
-            val tasks = taskRepository.getTasksForDate(date).first()
+            val allTasks = taskRepository.getTasksForDate(date).first()
+
+            // NUEVO: Filtramos si se mandó un ID específico. Si es -1, agarra todas.
+            val tasks = if (targetTaskId != -1L) allTasks.filter { it.id == targetTaskId } else allTasks
+
             if (tasks.isEmpty()) { stopSelf(); return@launch }
 
             startForeground(
                 NotificationHelper.NOTIFICATION_ID_TIMER,
                 notificationHelper.buildTimerNotification(
                     tasks.first().nombre,
-                    timeFormatter.formatSeconds(tasks.first().subTareas.first().tiempoAsignado * 60)
+                    // YA NO SE MULTIPLICA POR 60
+                    timeFormatter.formatSeconds(tasks.first().subTareas.first().tiempoAsignado)
                 )
             )
 
@@ -92,52 +102,43 @@ class TimerService : Service() {
 
                 val sessionStart = System.currentTimeMillis()
 
-                // Ciclo Maestro: Repeticiones
                 for (rep in 0 until task.repeticiones) {
                     _state.update { it.copy(currentRepetition = rep) }
 
-                    // Ciclo Interno: Intervalos de Trabajo (Subtareas)
                     for ((subIndex, subTask) in task.subTareas.withIndex()) {
-
-                        // --- FASE DE TRABAJO ---
                         _state.update { it.copy(
                             isWorkPhase = true,
                             currentSubTaskIndex = subIndex,
                             currentSubTaskName = subTask.nombre,
-                            secondsRemaining = subTask.tiempoAsignado * 60
+                            // YA NO SE MULTIPLICA POR 60
+                            secondsRemaining = subTask.tiempoAsignado
                         ) }
 
-                        // Disparar Alerta de Inicio de Trabajo
                         notificationHelper.showAlarmNotification(AlarmType.WORK_START)
                         ambientSoundPlayer.resume()
 
-                        // Ejecutar temporizador de trabajo
-                        countDown(subTask.tiempoAsignado * 60)
+                        // YA NO SE MULTIPLICA POR 60
+                        countDown(subTask.tiempoAsignado)
 
-                        // Verificamos si estamos en el final absoluto de la tarea
                         val isLastRep = rep == task.repeticiones - 1
                         val isLastSubTask = subIndex == task.subTareas.size - 1
 
-                        // --- FASE DE DESCANSO ---
-                        // Hay descanso siempre, EXCEPTO si es la última subtarea de la última repetición
                         if (!(isLastRep && isLastSubTask) && task.tiempoDescanso > 0) {
-
                             _state.update { it.copy(
                                 isWorkPhase = false,
-                                secondsRemaining = task.tiempoDescanso * 60
+                                // YA NO SE MULTIPLICA POR 60
+                                secondsRemaining = task.tiempoDescanso
                             ) }
 
-                            // Disparar Alerta de Inicio de Descanso
                             notificationHelper.showAlarmNotification(AlarmType.REST_START)
                             ambientSoundPlayer.pause()
 
-                            // Ejecutar temporizador de descanso
-                            countDown(task.tiempoDescanso * 60)
+                            // YA NO SE MULTIPLICA POR 60
+                            countDown(task.tiempoDescanso)
                         }
                     }
                 }
 
-                // Guardar sesión
                 val elapsedSeconds = ((System.currentTimeMillis() - sessionStart) / 1000).toInt()
                 sessionHistoryRepository.saveSession(
                     SessionHistory(tareaId = task.id, fecha = date, tiempoReal = elapsedSeconds)
@@ -149,7 +150,6 @@ class TimerService : Service() {
                 }
             }
 
-            // --- FINALIZACIÓN DE TODO ---
             notificationHelper.showAlarmNotification(AlarmType.ALL_DONE)
             ambientSoundPlayer.stop()
             _state.update { it.copy(isRunning = false) }

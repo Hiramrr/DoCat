@@ -1,19 +1,15 @@
 package com.smart.docat.ui.newtask
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smart.docat.core.utils.TimeFormatter
+import com.smart.docat.data.repository.TaskRepository
 import com.smart.docat.domain.model.SubTask
 import com.smart.docat.domain.model.Task
 import com.smart.docat.domain.model.TaskStatus
 import com.smart.docat.domain.usecase.SaveTaskUseCase
-import com.smart.docat.data.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,7 +21,6 @@ class NewTaskViewModel @Inject constructor(
     private val timeFormatter: TimeFormatter
 ) : ViewModel() {
 
-    // Variables de estado para el formulario
     private val _taskName = MutableStateFlow("")
     val taskName = _taskName.asStateFlow()
 
@@ -38,33 +33,31 @@ class NewTaskViewModel @Inject constructor(
     private val _subTasks = MutableStateFlow<List<SubTask>>(emptyList())
     val subTasks = _subTasks.asStateFlow()
 
-    // Toggle para elegir entre minutos y segundos
-    private val _isUsingSeconds = MutableStateFlow(false)
-    val isUsingSeconds = _isUsingSeconds.asStateFlow()
+    // NUEVO: Controla si el usuario está ingresando minutos o segundos
+    private val _isSecondsMode = MutableStateFlow(false)
+    val isSecondsMode = _isSecondsMode.asStateFlow()
 
-    // Variable para saber si estamos editando
     private var currentTaskId: Long = 0L
 
-    // Funciones para actualizar el estado desde la UI
     fun onNameChange(newName: String) { _taskName.value = newName }
     fun onRepetitionsChange(newReps: String) { _repetitions.value = newReps }
     fun onRestTimeChange(newTime: String) { _restTime.value = newTime }
 
-    fun toggleTimeUnit() {
-        _isUsingSeconds.value = !_isUsingSeconds.value
-    }
+    // NUEVO: Cambiar entre minutos y segundos
+    fun toggleTimeMode(isSeconds: Boolean) { _isSecondsMode.value = isSeconds }
 
     fun addSubTask(name: String, time: String) {
         if (name.isNotBlank() && time.isNotBlank()) {
-            val timeInt = time.toIntOrNull() ?: 0
-            // Si está en minutos, convertir a segundos; si está en segundos, guardar directo
-            val timeInSeconds = if (_isUsingSeconds.value) timeInt else timeInt * 60
+            // Si está en modo minutos, lo multiplicamos por 60 para guardarlo SIEMPRE en segundos
+            val multiplier = if (_isSecondsMode.value) 1 else 60
+            val timeInSeconds = (time.toIntOrNull() ?: 0) * multiplier
+
             val nextOrder = _subTasks.value.size + 1
             val newSubTask = SubTask(
                 id = 0L,
                 tareaId = currentTaskId,
                 nombre = name,
-                tiempoAsignado = timeInSeconds,
+                tiempoAsignado = timeInSeconds, // Ahora guarda segundos reales
                 orden = nextOrder
             )
             _subTasks.value = _subTasks.value + newSubTask
@@ -75,15 +68,16 @@ class NewTaskViewModel @Inject constructor(
         _subTasks.value = _subTasks.value - subTask
     }
 
-    // Cargar tarea si venimos a editar
     fun loadTask(taskId: Long) {
         if (taskId != 0L) {
             viewModelScope.launch {
-                val task = taskRepository.getTaskById(taskId) // Ajusta el nombre de la función según tu repositorio
+                val task = taskRepository.getTaskById(taskId)
                 task?.let {
                     currentTaskId = it.id
                     _taskName.value = it.nombre
                     _repetitions.value = it.repeticiones.toString()
+                    // Al editar, forzamos el modo segundos para mostrar el valor crudo exacto guardado
+                    _isSecondsMode.value = true
                     _restTime.value = it.tiempoDescanso.toString()
                     _subTasks.value = it.subTareas
                 }
@@ -91,31 +85,24 @@ class NewTaskViewModel @Inject constructor(
         }
     }
 
-    // Evento de navegación hacia atrás
-    private val _navigateBack = MutableSharedFlow<Unit>()
-    val navigateBack: SharedFlow<Unit> = _navigateBack.asSharedFlow()
-
-    // Guardar la tarea
-    fun saveTask() {
+    fun saveTask(onSuccess: () -> Unit) {
         viewModelScope.launch {
-            try {
-                val totalWorkTime = _subTasks.value.sumOf { it.tiempoAsignado }
-                val task = Task(
-                    id = currentTaskId,
-                    nombre = _taskName.value,
-                    tiempoTrabajo = totalWorkTime,
-                    repeticiones = _repetitions.value.toIntOrNull() ?: 1,
-                    tiempoDescanso = _restTime.value.toIntOrNull() ?: 5,
-                    subTareas = _subTasks.value,
-                    estado = TaskStatus.IN_PROGRESS,
-                    fecha = timeFormatter.formatDate()
-                )
-                saveTaskUseCase(task)
-            } catch (e: Exception) {
-                Log.e("NewTaskVM", "Error al guardar tarea", e)
-            }
-            // Siempre navegar de regreso, incluso si hay error
-            _navigateBack.emit(Unit)
+            val multiplier = if (_isSecondsMode.value) 1 else 60
+            val restTimeInSeconds = (_restTime.value.toIntOrNull() ?: 5) * multiplier
+            val totalWorkTime = _subTasks.value.sumOf { it.tiempoAsignado }
+
+            val task = Task(
+                id = currentTaskId,
+                nombre = _taskName.value,
+                tiempoTrabajo = totalWorkTime,
+                repeticiones = _repetitions.value.toIntOrNull() ?: 1,
+                tiempoDescanso = restTimeInSeconds,
+                subTareas = _subTasks.value,
+                estado = TaskStatus.IN_PROGRESS,
+                fecha = timeFormatter.formatDate()
+            )
+            saveTaskUseCase(task)
+            onSuccess()
         }
     }
 }
